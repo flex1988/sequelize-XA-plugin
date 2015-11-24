@@ -1,0 +1,21 @@
+{
+  "name": "sequelize-XA-plugin",
+  "version": "1.0.0",
+  "description": "sequelize plugin XA transaction",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "sequelize",
+    "plugin",
+    "XA",
+    "transaction"
+  ],
+  "author": "flex1988",
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^3.10.1",
+    "uuid": "^2.0.1"
+  }
+}
