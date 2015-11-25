@@ -22,7 +22,7 @@ sequelize XA plugin
   });
   sequelize = xaPlugin(sequelize);
   ```
-3. Add XATransaction function
+3. XATransaction function
 
   ```javascript
   yield db.XATransaction({
@@ -37,7 +37,7 @@ sequelize XA plugin
       });
     });
   ```
-4. Add XA callback to commit or roolback prepared transaction
+4. XA callback to commit or roolback prepared transaction
 
   ```javascript
   yield sequelize.finishPrepared(transactionId, action);

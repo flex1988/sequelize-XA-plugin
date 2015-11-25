@@ -11,7 +11,7 @@ exports = module.exports = XAPlugin;
 function XAPlugin(sequelize, options) {
   util.inherits(XATransaction, sequelize.__proto__.Transaction);
   require('./addAttributes.js')(XATransaction);
-  
+
   let queryInterface = sequelize.getQueryInterface();
   queryInterface.startXATransaction = function(xa, options) {
     if (!xa || !(xa instanceof XATransaction)) {
@@ -60,13 +60,14 @@ function XAPlugin(sequelize, options) {
 
           let result = autoCallback(transaction);
           if (!result || !result.then) throw new Error('You need to return a promise chain/thenable to the sequelize.XATransaction() callback');
-
+          
           return result.then(function(result) {
             return transaction.prepare().then(function() {
               resolve(result);
             });
           });
         }).then(function() {
+         
           request({
             method: 'put',
             uri: options.transactionManager + 'xatransaction/' + options.xid,
@@ -79,17 +80,25 @@ function XAPlugin(sequelize, options) {
           });
         }).catch(function(err) {
           //通知TM rollback
-          console.error(err.stack);
-          request({
-            method: 'put',
-            uri: options.transactionManager + 'xatransaction/' + options.xid,
-            form: qs.stringify({
-              name: options.name,
-              status: 'ROLLBACK',
-              id: '',
-              callback: options.callback
-            })
-          });
+          if (transaction.finished === 'rollback') {
+            reject(err);
+          } else if (transaction.prepared !== 'prepared') {
+            transaction.rollback().finally(function() {
+              reject(err);
+            });
+          }
+
+          if (transaction.prepared === 'prepared')
+            request({
+              method: 'put',
+              uri: options.transactionManager + 'xatransaction/' + options.xid,
+              form: qs.stringify({
+                name: options.name,
+                status: 'ROLLBACK',
+                id: transaction.id,
+                callback: options.callback
+              })
+            });
         });
       };
       if (ns) {
