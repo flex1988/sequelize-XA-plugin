@@ -23,6 +23,7 @@ sequelize XA plugin
   sequelize = xaPlugin(sequelize);
   ```
 3. Add XATransaction function
+
   ```javascript
   yield db.XATransaction({
       transactionManager: 'TM URL',
@@ -37,6 +38,7 @@ sequelize XA plugin
     });
   ```
 4. Add XA callback to commit or roolback prepared transaction
+
   ```javascript
   yield sequelize.finishPrepared(transactionId, action);
   ```
