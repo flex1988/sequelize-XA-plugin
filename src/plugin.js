@@ -4,28 +4,31 @@ let XATransaction = require('./XATransaction.js');
 let _ = require('lodash');
 let request = require('request');
 let qs = require('querystring');
+let util = require('util');
 
 exports = module.exports = XAPlugin;
 
 function XAPlugin(sequelize, options) {
+  util.inherits(XATransaction, sequelize.__proto__.Transaction);
+  require('./addAttributes.js')(XATransaction);
+  
   let queryInterface = sequelize.getQueryInterface();
   queryInterface.startXATransaction = function(xa, options) {
     if (!xa || !(xa instanceof XATransaction)) {
       throw new Error('Ubable to start a transaction without transaction object');
     }
     options = _.assign({}, options || {}, {
-      transaction: xa
+      transaction: xa.parent || xa
     });
     return this.sequelize.query('BEGIN;', options);
   };
 
   queryInterface.prepareXATransaction = function(xa, options) {
-    console.log(xa.id);
     if (!xa || !(xa instanceof XATransaction)) {
       throw new Error('Ubable to start a transaction without transaction object');
     }
     options = _.assign({}, options || {}, {
-      transaction: xa
+      transaction: xa.parent || xa
     });
     return this.sequelize.query('PREPARE TRANSACTION \'' + xa.id + '\';', options);
   };
@@ -35,12 +38,12 @@ function XAPlugin(sequelize, options) {
       throw new Error('Ubable to start a transaction without transaction object');
     }
     options = _.assign({}, options || {}, {
-      transaction: xa
+      transaction: xa.parent || xa
     });
-    return this.sequelize.query('ROLL BACK;', options);
+    return this.sequelize.query('ROLLBACK;', options);
   }
 
-  sequelize.XATransaction = function(options, autoCallback) {
+  sequelize.__proto__.XATransaction = function(options, autoCallback) {
     if (typeof options === 'function') {
       autoCallback = options;
       options = undefined;
@@ -66,25 +69,25 @@ function XAPlugin(sequelize, options) {
         }).then(function() {
           request({
             method: 'put',
-            uri: options.transactionManager + '/' + options.xid,
+            uri: options.transactionManager + 'xatransaction/' + options.xid,
             form: qs.stringify({
               name: options.name,
               status: 'READY',
-              id: '',
+              id: transaction.id,
               callback: options.callback
             })
           });
         }).catch(function(err) {
           //通知TM rollback
-          console.log(err);
+          console.error(err.stack);
           request({
             method: 'put',
-            uri: options.transactionManager + '/' + options.xid,
+            uri: options.transactionManager + 'xatransaction/' + options.xid,
             form: qs.stringify({
               name: options.name,
               status: 'ROLLBACK',
               id: '',
-              callback: ''
+              callback: options.callback
             })
           });
         });
@@ -99,8 +102,8 @@ function XAPlugin(sequelize, options) {
     }
   }
 
-  sequelize.finishPrepared = function(tid, action) {
-    return this.query(action + ' PREPARED \'' + tid + '\';', options);
+  sequelize.__proto__.finishPrepared = function(tid, action) {
+    return this.query(action + ' PREPARED \'' + tid + '\';');
   }
 
   return sequelize;
