@@ -2,6 +2,8 @@
 
 let XATransaction = require('./XATransaction.js');
 let _ = require('lodash');
+let request = require('request');
+let qs = require('querystring');
 
 exports = module.exports = XAPlugin;
 
