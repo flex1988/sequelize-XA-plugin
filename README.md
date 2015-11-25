@@ -10,14 +10,14 @@ sequelize XA plugin
 2. Init sequelize
   ```javascript
   let xaPlugin = require('sequelize-xa-plugin');
-  sequelize = new Sequelize(config.db.dbname, config.db.username, config.db.password, {
-    dialect: 'mysql',
-    host: config.db.host,
-    port: config.db.port,
-    timezone: '+08:00',
+  sequelize = new Sequelize('database', 'user', 'pwd', {
+    dialect: 'postgres',
+    host: 'localhost',
+    port: 5432,
+    timezone: '+00:00',
     logging: undefined,
     pool: {
-        maxConnections: config.db.pool
+        maxConnections: 10
     }
   });
   sequelize = xaPlugin(sequelize);
