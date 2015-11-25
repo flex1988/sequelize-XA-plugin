@@ -63,6 +63,17 @@ function XAPlugin(sequelize, options) {
               resolve(result);
             });
           });
+        }).then(function() {
+          request({
+            method: 'put',
+            uri: options.transactionManager + '/' + options.xid,
+            form: qs.stringify({
+              name: options.name,
+              status: 'READY',
+              id: '',
+              callback: options.callback
+            })
+          });
         }).catch(function(err) {
           //通知TM rollback
           console.log(err);
