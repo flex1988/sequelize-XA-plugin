@@ -7,7 +7,6 @@ exports = module.exports = XAPlugin;
 
 function XAPlugin(sequelize, options) {
   let queryInterface = sequelize.getQueryInterface();
-
   queryInterface.startXATransaction = function(xa, options) {
     if (!xa || !(xa instanceof XATransaction)) {
       throw new Error('Ubable to start a transaction without transaction object');
@@ -48,13 +47,13 @@ function XAPlugin(sequelize, options) {
     let transaction = new XATransaction(this, options);
     let ns = Sequelize.cls;
     if (autoCallback) {
-      var transactionResolver = function(resolve, reject) {
+      let transactionResolver = function(resolve, reject) {
         transaction.prepareEnvironment().then(function() {
           if (ns) {
             autoCallback = ns.bind(autoCallback);
           }
 
-          var result = autoCallback(transaction);
+          let result = autoCallback(transaction);
           if (!result || !result.then) throw new Error('You need to return a promise chain/thenable to the sequelize.XATransaction() callback');
 
           return result.then(function(result) {
@@ -63,9 +62,18 @@ function XAPlugin(sequelize, options) {
             });
           });
         }).catch(function(err) {
-          //todo 通知TM rollback
-          //
+          //通知TM rollback
           console.log(err);
+          request({
+            method: 'put',
+            uri: options.transactionManager + '/' + options.xid,
+            form: qs.stringify({
+              name: options.name,
+              status: 'ROLLBACK',
+              id: '',
+              callback: ''
+            })
+          });
         });
       };
       if (ns) {
@@ -78,10 +86,9 @@ function XAPlugin(sequelize, options) {
     }
   }
 
-  sequelize.commitPrepared = function(tid) {
-    return this.query('COMMIT PREPARED \'' + tid + '\';', options);
+  sequelize.finishPrepared = function(tid, action) {
+    return this.query(action + ' PREPARED \'' + tid + '\';', options);
   }
 
   return sequelize;
 }
-

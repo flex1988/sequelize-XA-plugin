@@ -62,7 +62,7 @@ XATransaction.prototype.setIsolationLevel = function() {
 };
 
 XATransaction.prototype.rollback = function() {
-  var self = this;
+  let self = this;
 
   if (this.finished) {
     throw new Error('Transaction cannot be rolled back because it has been finished with state: ' + self.finished);
@@ -83,13 +83,13 @@ XATransaction.prototype.rollback = function() {
 };
 
 XATransaction.prototype.cleanup = function() {
-  var res = this.sequelize.connectionManager.releaseConnection(this.connection);
+  let res = this.sequelize.connectionManager.releaseConnection(this.connection);
   this.connection.uuid = undefined;
   return res;
 };
 
 XATransaction.prototype.$clearCls = function() {
-  var cls = this.sequelize.constructor.cls;
+  let cls = this.sequelize.constructor.cls;
 
   if (cls) {
     if (cls.get('transaction') === this) {
