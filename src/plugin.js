@@ -14,7 +14,7 @@ function XAPlugin(sequelize, options) {
   require('./addAttributes.js')(XATransaction);
 
   let queryInterface = sequelize.getQueryInterface();
-  let timeOutEmitter = new EventEmitter();
+
   queryInterface.startXATransaction = function(xa, options) {
     if (!xa || !(xa instanceof XATransaction)) {
       throw new Error('Ubable to start a transaction without transaction object');
@@ -53,37 +53,45 @@ function XAPlugin(sequelize, options) {
 
     let transaction = new XATransaction(this, options);
     let ns = sequelize.__proto__.cls;
+    let timeOutEmitter = new EventEmitter();
+    let notify = function(transaction, reject, err) {
+      //通知TM rollback
+      if (transaction.finished === 'ROLLBACK') {
+        reject(err);
+      } else if (transaction.prepared !== 'PREPARE') {
+        transaction.rollback().finally(function() {
+          reject(err);
+        });
+      }
+      let status = transaction.prepared || transaction.finished || 'ERROR';
+      request({
+        method: 'put',
+        uri: options.transactionManager + options.xid,
+        form: qs.stringify({
+          name: options.name,
+          status: status,
+          id: transaction.id,
+          callback: options.callback
+        })
+      });
+    };
     if (autoCallback) {
       let transactionResolver = function(resolve, reject) {
         transaction.prepareEnvironment().then(function() {
           if (ns) {
             autoCallback = ns.bind(autoCallback);
           }
-          timeOutEmitter.timeId = setTimeout(function(transaction) {
-            timeOutEmitter.timeout = true;
-            timeOutEmitter.emit('timeout', 2000);
-          }, 2000);
-          timeOutEmitter.on('timeout', function() {
-            if (transaction.finished === 'ROLLBACK') {
-              reject(new Error('timeout'));
-            } else if (transaction.prepared !== 'PREPARE') {
-              transaction.rollback().finally(function() {
-                reject(new Error('timeout'));
-              });
-            }
-            clearTimeout(timeOutEmitter.timeId);
-            let status = transaction.prepared || transaction.finished || 'ERROR';
-            request({
-              method: 'put',
-              uri: options.transactionManager + options.xid,
-              form: qs.stringify({
-                name: options.name,
-                status: status,
-                id: transaction.id,
-                callback: options.callback
-              })
+          if (!timeOutEmitter.set) {
+            timeOutEmitter.set = true;
+            timeOutEmitter.timeId = setTimeout(function(transaction) {
+              timeOutEmitter.emit('timeout', 2000);
+            }, 2000);
+            timeOutEmitter.on('timeout', function() {
+              timeOutEmitter.timeout = true;
+              clearTimeout(timeOutEmitter.timeId);
+              return notify(transaction, reject);
             });
-          });
+          }
           let result = autoCallback(transaction);
           if (!result || !result.then) throw new Error('You need to return a promise chain/thenable to the sequelize.XATransaction() callback');
 
@@ -93,38 +101,20 @@ function XAPlugin(sequelize, options) {
             });
           });
         }).then(function() {
+          clearTimeout(timeOutEmitter.timeId);
           request({
             method: 'put',
             uri: options.transactionManager + options.xid,
             form: qs.stringify({
               name: options.name,
-              status: 'READY',
+              status: 'PREPARE',
               id: transaction.id,
               callback: options.callback
             })
           });
         }).catch(function(err) {
-          //通知TM rollback
-          if (transaction.finished === 'ROLLBACK') {
-            reject(err);
-          } else if (transaction.prepared !== 'PREPARE') {
-            transaction.rollback().finally(function() {
-              reject(err);
-            });
-          }
-
-          let status = transaction.prepared || transaction.finished || 'ERROR';
-
-          request({
-            method: 'put',
-            uri: options.transactionManager + options.xid,
-            form: qs.stringify({
-              name: options.name,
-              status: status,
-              id: transaction.id,
-              callback: options.callback
-            })
-          });
+          clearTimeout(timeOutEmitter.timeId);
+          return notify(transaction, reject, err);
         });
       };
       if (ns) {

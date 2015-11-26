@@ -73,6 +73,7 @@ exports = module.exports = function(XATransaction) {
   XATransaction.prototype.cleanup = function() {
     let res = this.sequelize.connectionManager.releaseConnection(this.connection);
     this.connection.uuid = undefined;
+    this.prepared = '';
     return res;
   };
 }
