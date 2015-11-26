@@ -10,7 +10,7 @@ sequelize XA plugin
 2. Init sequelize
   ```javascript
   let xaPlugin = require('sequelize-xa-plugin');
-  sequelize = new Sequelize('database', 'user', 'pwd', {
+  let sequelize = new Sequelize('database', 'user', 'pwd', {
     dialect: 'postgres',
     host: 'localhost',
     port: 5432,

@@ -60,14 +60,14 @@ function XAPlugin(sequelize, options) {
 
           let result = autoCallback(transaction);
           if (!result || !result.then) throw new Error('You need to return a promise chain/thenable to the sequelize.XATransaction() callback');
-          
+
           return result.then(function(result) {
             return transaction.prepare().then(function() {
               resolve(result);
             });
           });
         }).then(function() {
-         
+
           request({
             method: 'put',
             uri: options.transactionManager + 'xatransaction/' + options.xid,
@@ -88,13 +88,24 @@ function XAPlugin(sequelize, options) {
             });
           }
 
-          if (transaction.prepared === 'prepared')
+          if (transaction.finished === 'rollback')
             request({
               method: 'put',
-              uri: options.transactionManager + 'xatransaction/' + options.xid,
+              uri: options.transactionManager + options.xid,
               form: qs.stringify({
                 name: options.name,
                 status: 'ROLLBACK',
+                id: transaction.id,
+                callback: options.callback
+              })
+            });
+          else if (transaction.prepared === 'prepared')
+            request({
+              method: 'put',
+              uri: options.transactionManager  + options.xid,
+              form: qs.stringify({
+                name: options.name,
+                status: 'PREPARE',
                 id: transaction.id,
                 callback: options.callback
               })

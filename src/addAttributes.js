@@ -53,7 +53,7 @@ exports = module.exports = function(XATransaction) {
     let self = this;
 
     if (this.finished) {
-      throw new Error('Transaction cannot be rolled back because it has been finished with state: ' + self.finished);
+      throw new Error('XATransaction cannot be rolled back because it has been finished with state: ' + self.finished);
     }
 
     this.$clearCls();
