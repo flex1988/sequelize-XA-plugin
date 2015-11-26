@@ -5,6 +5,7 @@ let _ = require('lodash');
 let request = require('request');
 let qs = require('querystring');
 let util = require('util');
+let EventEmitter = require('events').EventEmitter;
 
 exports = module.exports = XAPlugin;
 
@@ -13,6 +14,7 @@ function XAPlugin(sequelize, options) {
   require('./addAttributes.js')(XATransaction);
 
   let queryInterface = sequelize.getQueryInterface();
+  let timeOutEmitter = new EventEmitter();
   queryInterface.startXATransaction = function(xa, options) {
     if (!xa || !(xa instanceof XATransaction)) {
       throw new Error('Ubable to start a transaction without transaction object');
@@ -50,14 +52,38 @@ function XAPlugin(sequelize, options) {
     }
 
     let transaction = new XATransaction(this, options);
-    let ns = Sequelize.cls;
+    let ns = sequelize.__proto__.cls;
     if (autoCallback) {
       let transactionResolver = function(resolve, reject) {
         transaction.prepareEnvironment().then(function() {
           if (ns) {
             autoCallback = ns.bind(autoCallback);
           }
-
+          timeOutEmitter.timeId = setTimeout(function(transaction) {
+            timeOutEmitter.timeout = true;
+            timeOutEmitter.emit('timeout', 2000);
+          }, 2000);
+          timeOutEmitter.on('timeout', function() {
+            if (transaction.finished === 'ROLLBACK') {
+              reject(new Error('timeout'));
+            } else if (transaction.prepared !== 'PREPARE') {
+              transaction.rollback().finally(function() {
+                reject(new Error('timeout'));
+              });
+            }
+            clearTimeout(timeOutEmitter.timeId);
+            let status = transaction.prepared || transaction.finished || 'ERROR';
+            request({
+              method: 'put',
+              uri: options.transactionManager + options.xid,
+              form: qs.stringify({
+                name: options.name,
+                status: status,
+                id: transaction.id,
+                callback: options.callback
+              })
+            });
+          });
           let result = autoCallback(transaction);
           if (!result || !result.then) throw new Error('You need to return a promise chain/thenable to the sequelize.XATransaction() callback');
 
@@ -67,10 +93,9 @@ function XAPlugin(sequelize, options) {
             });
           });
         }).then(function() {
-
           request({
             method: 'put',
-            uri: options.transactionManager +  options.xid,
+            uri: options.transactionManager + options.xid,
             form: qs.stringify({
               name: options.name,
               status: 'READY',
