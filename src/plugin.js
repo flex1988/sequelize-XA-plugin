@@ -70,7 +70,7 @@ function XAPlugin(sequelize, options) {
 
           request({
             method: 'put',
-            uri: options.transactionManager + 'xatransaction/' + options.xid,
+            uri: options.transactionManager +  options.xid,
             form: qs.stringify({
               name: options.name,
               status: 'READY',
@@ -80,36 +80,26 @@ function XAPlugin(sequelize, options) {
           });
         }).catch(function(err) {
           //通知TM rollback
-          if (transaction.finished === 'rollback') {
+          if (transaction.finished === 'ROLLBACK') {
             reject(err);
-          } else if (transaction.prepared !== 'prepared') {
+          } else if (transaction.prepared !== 'PREPARE') {
             transaction.rollback().finally(function() {
               reject(err);
             });
           }
 
-          if (transaction.finished === 'rollback')
-            request({
-              method: 'put',
-              uri: options.transactionManager + options.xid,
-              form: qs.stringify({
-                name: options.name,
-                status: 'ROLLBACK',
-                id: transaction.id,
-                callback: options.callback
-              })
-            });
-          else if (transaction.prepared === 'prepared')
-            request({
-              method: 'put',
-              uri: options.transactionManager  + options.xid,
-              form: qs.stringify({
-                name: options.name,
-                status: 'PREPARE',
-                id: transaction.id,
-                callback: options.callback
-              })
-            });
+          let status = transaction.prepared || transaction.finished || 'ERROR';
+
+          request({
+            method: 'put',
+            uri: options.transactionManager + options.xid,
+            form: qs.stringify({
+              name: options.name,
+              status: status,
+              id: transaction.id,
+              callback: options.callback
+            })
+          });
         });
       };
       if (ns) {

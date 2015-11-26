@@ -19,7 +19,7 @@ exports = module.exports = function(XATransaction) {
       .getQueryInterface()
       .prepareXATransaction(this, this.options)
       .finally(function() {
-        self.prepared = 'prepared';
+        self.prepared = 'PREPARE';
         self.cleanup();
       });
   };
@@ -63,7 +63,7 @@ exports = module.exports = function(XATransaction) {
       .getQueryInterface()
       .rollbackXATransaction(this, this.options)
       .finally(function() {
-        self.finished = 'rollback';
+        self.finished = 'ROLLBACK';
         if (!self.parent) {
           self.cleanup();
         }
@@ -75,14 +75,5 @@ exports = module.exports = function(XATransaction) {
     this.connection.uuid = undefined;
     return res;
   };
-
-  XATransaction.prototype.$clearCls = function() {
-    let cls = this.sequelize.constructor.cls;
-
-    if (cls) {
-      if (cls.get('transaction') === this) {
-        cls.set('transaction', null);
-      }
-    }
-  };
 }
+
