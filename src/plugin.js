@@ -13,6 +13,7 @@ function XAPlugin(sequelize, options) {
   require('./addAttributes.js')(XATransaction);
 
   let queryInterface = sequelize.getQueryInterface();
+
   queryInterface.startXATransaction = function(xa, options) {
     if (!xa || !(xa instanceof XATransaction)) {
       throw new Error('Ubable to start a transaction without transaction object');
@@ -50,14 +51,34 @@ function XAPlugin(sequelize, options) {
     }
 
     let transaction = new XATransaction(this, options);
-    let ns = Sequelize.cls;
+    let ns = sequelize.__proto__.cls;
+    let notify = function(transaction, reject, err) {
+      //通知TM rollback
+      if (transaction.finished === 'ROLLBACK') {
+        reject(err);
+      } else if (transaction.prepared !== 'PREPARE') {
+        transaction.rollback().finally(function() {
+          reject(err);
+        });
+      }
+      let status = transaction.prepared || transaction.finished || 'ERROR';
+      request({
+        method: 'put',
+        uri: options.transactionManager + options.xid,
+        form: qs.stringify({
+          name: options.name,
+          status: status,
+          id: transaction.id,
+          callback: options.callback
+        })
+      });
+    };
     if (autoCallback) {
       let transactionResolver = function(resolve, reject) {
         transaction.prepareEnvironment().then(function() {
           if (ns) {
             autoCallback = ns.bind(autoCallback);
           }
-
           let result = autoCallback(transaction);
           if (!result || !result.then) throw new Error('You need to return a promise chain/thenable to the sequelize.XATransaction() callback');
 
@@ -67,49 +88,18 @@ function XAPlugin(sequelize, options) {
             });
           });
         }).then(function() {
-
           request({
             method: 'put',
-            uri: options.transactionManager + 'xatransaction/' + options.xid,
+            uri: options.transactionManager + options.xid,
             form: qs.stringify({
               name: options.name,
-              status: 'READY',
+              status: 'PREPARE',
               id: transaction.id,
               callback: options.callback
             })
           });
         }).catch(function(err) {
-          //通知TM rollback
-          if (transaction.finished === 'rollback') {
-            reject(err);
-          } else if (transaction.prepared !== 'prepared') {
-            transaction.rollback().finally(function() {
-              reject(err);
-            });
-          }
-
-          if (transaction.finished === 'rollback')
-            request({
-              method: 'put',
-              uri: options.transactionManager + options.xid,
-              form: qs.stringify({
-                name: options.name,
-                status: 'ROLLBACK',
-                id: transaction.id,
-                callback: options.callback
-              })
-            });
-          else if (transaction.prepared === 'prepared')
-            request({
-              method: 'put',
-              uri: options.transactionManager  + options.xid,
-              form: qs.stringify({
-                name: options.name,
-                status: 'PREPARE',
-                id: transaction.id,
-                callback: options.callback
-              })
-            });
+          return notify(transaction, reject, err);
         });
       };
       if (ns) {

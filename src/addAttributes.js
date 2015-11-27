@@ -70,19 +70,4 @@ exports = module.exports = function(XATransaction) {
       });
   };
 
-  XATransaction.prototype.cleanup = function() {
-    let res = this.sequelize.connectionManager.releaseConnection(this.connection);
-    this.connection.uuid = undefined;
-    return res;
-  };
-
-  XATransaction.prototype.$clearCls = function() {
-    let cls = this.sequelize.constructor.cls;
-
-    if (cls) {
-      if (cls.get('transaction') === this) {
-        cls.set('transaction', null);
-      }
-    }
-  };
 }
