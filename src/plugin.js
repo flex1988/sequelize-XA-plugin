@@ -53,7 +53,7 @@ function XAPlugin(sequelize, options) {
 
     let transaction = new XATransaction(this, options);
     let ns = sequelize.__proto__.cls;
-    let timeOutEmitter = new EventEmitter();
+
     let notify = function(transaction, reject, err) {
       //通知TM rollback
       if (transaction.finished === 'ROLLBACK') {
@@ -81,17 +81,7 @@ function XAPlugin(sequelize, options) {
           if (ns) {
             autoCallback = ns.bind(autoCallback);
           }
-          if (!timeOutEmitter.set) {
-            timeOutEmitter.set = true;
-            timeOutEmitter.timeId = setTimeout(function(transaction) {
-              timeOutEmitter.emit('timeout', 2000);
-            }, 2000);
-            timeOutEmitter.on('timeout', function() {
-              timeOutEmitter.timeout = true;
-              clearTimeout(timeOutEmitter.timeId);
-              return notify(transaction, reject);
-            });
-          }
+
           let result = autoCallback(transaction);
           if (!result || !result.then) throw new Error('You need to return a promise chain/thenable to the sequelize.XATransaction() callback');
 
@@ -101,7 +91,6 @@ function XAPlugin(sequelize, options) {
             });
           });
         }).then(function() {
-          clearTimeout(timeOutEmitter.timeId);
           request({
             method: 'put',
             uri: options.transactionManager + options.xid,
@@ -113,7 +102,6 @@ function XAPlugin(sequelize, options) {
             })
           });
         }).catch(function(err) {
-          clearTimeout(timeOutEmitter.timeId);
           return notify(transaction, reject, err);
         });
       };
