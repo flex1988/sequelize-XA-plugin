@@ -45,14 +45,24 @@ function XAPlugin(sequelize, options) {
     return this.sequelize.query('ROLLBACK;', options);
   }
 
-  queryInterface.rollbackTimeout = function(xa, options) {
+  queryInterface.rollbackTimeoutXAtransaction = function(xa, options) {
     let self = this;
-    return this.sequelize.query('SELECT gid from pg_prepared_xacts', options).then(function(gids) {
-      console.log(gids);
-      for (let i = 0; i < gids; i++) {
-        return self.query('rollback prepared ' + gids[i]);
-      }
-    });
+    console.log(options);
+    if (options.database && options.username) {
+      return this.sequelize.query('SELECT gid from pg_prepared_xacts where database = ? and owner = ? and prepared < CURRENT_TIMESTAMP - (10 * interval \'1 second\')', {
+        raw: true,
+        nest: true,
+        replacements: [options.database, options.username]
+      }).then(function(gids) {
+        for (let i = 0; i < gids.length; i++) {
+          return self.sequelize.query('rollback prepared \'' + gids[i].gid + '\';', {
+            raw: true
+          });
+        }
+      });
+    } else {
+      return this.sequelize.query('');
+    }
   }
 
   sequelize.__proto__.XATransaction = function(options, autoCallback) {

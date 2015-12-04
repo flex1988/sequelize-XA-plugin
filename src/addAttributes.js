@@ -24,6 +24,17 @@ exports = module.exports = function(XATransaction) {
       });
   };
 
+  XATransaction.prototype.rollbackTimeout = function() {
+    let self = this;
+    return this
+      .sequelize
+      .getQueryInterface()
+      .rollbackTimeoutXAtransaction(this, this.options)
+      .finally(function() {
+        self.cleanup();
+      });
+  };
+
   XATransaction.prototype.prepareEnvironment = function() {
     let self = this;
 
