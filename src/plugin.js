@@ -45,6 +45,16 @@ function XAPlugin(sequelize, options) {
     return this.sequelize.query('ROLLBACK;', options);
   }
 
+  queryInterface.rollbackTimeout = function(xa, options) {
+    let self = this;
+    return this.sequelize.query('SELECT gid from pg_prepared_xacts', options).then(function(gids) {
+      console.log(gids);
+      for (let i = 0; i < gids; i++) {
+        return self.query('rollback prepared ' + gids[i]);
+      }
+    });
+  }
+
   sequelize.__proto__.XATransaction = function(options, autoCallback) {
     if (typeof options === 'function') {
       autoCallback = options;

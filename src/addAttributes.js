@@ -28,25 +28,28 @@ exports = module.exports = function(XATransaction) {
     let self = this;
 
     return self.sequelize.Promise.resolve(
-      self.parent ? self.parent.connection : self.sequelize.connectionManager.getConnection({
-        uuid: self.id
+        self.parent ? self.parent.connection : self.sequelize.connectionManager.getConnection({
+          uuid: self.id
+        })
+      ).then(function(connection) {
+        self.connection = connection;
+        self.connection.uuid = self.id;
+      }).then(function() {
+        return self.begin();
+      }).then(function() {
+        return self.setIsolationLevel();
+      }).then(function() {
+        return self.rollbackTimeout();
       })
-    ).then(function(connection) {
-      self.connection = connection;
-      self.connection.uuid = self.id;
-    }).then(function() {
-      return self.begin();
-    }).then(function() {
-      return self.setIsolationLevel();
-    }).catch(function(setupErr) {
-      return self.rollback().finally(function() {
-        throw setupErr;
+      .catch(function(setupErr) {
+        return self.rollback().finally(function() {
+          throw setupErr;
+        });
+      }).tap(function() {
+        if (self.sequelize.constructor.cls) {
+          self.sequelize.constructor.cls.set('transaction', self);
+        }
       });
-    }).tap(function() {
-      if (self.sequelize.constructor.cls) {
-        self.sequelize.constructor.cls.set('transaction', self);
-      }
-    });
   };
 
   XATransaction.prototype.rollback = function() {
@@ -71,4 +74,3 @@ exports = module.exports = function(XATransaction) {
   };
 
 }
-
