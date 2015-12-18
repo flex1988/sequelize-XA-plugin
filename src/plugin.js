@@ -45,14 +45,23 @@ function XAPlugin(sequelize, options) {
     return this.sequelize.query('ROLLBACK;', options);
   }
 
-  queryInterface.rollbackTimeoutPrepared = function(xa, options) {
-    if (!xa || !(xa instanceof XATransaction)) {
-      throw new Error('Ubable to start a transaction without transaction object');
+  queryInterface.rollbackTimeoutXAtransaction = function(xa, options) {
+    let self = this;
+    if (options.database && options.username) {
+      return this.sequelize.query('SELECT gid from pg_prepared_xacts where database = ? and owner = ? and prepared < CURRENT_TIMESTAMP - (10 * interval \'1 second\')', {
+        raw: true,
+        nest: true,
+        replacements: [options.database, options.username]
+      }).then(function(gids) {
+        for (let i = 0; i < gids.length; i++) {
+          return self.sequelize.query('rollback prepared \'' + gids[i].gid + '\';', {
+            raw: true
+          });
+        }
+      });
+    } else {
+      return this.sequelize.query('');
     }
-    options = _.assign({}, options || {}, {
-      transaction: xa.parent || xa
-    });
-    return this.sequelize.query('ROLLBACK;', options);
   }
 
   sequelize.__proto__.XATransaction = function(options, autoCallback) {
