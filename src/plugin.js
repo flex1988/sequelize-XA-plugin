@@ -45,6 +45,16 @@ function XAPlugin(sequelize, options) {
     return this.sequelize.query('ROLLBACK;', options);
   }
 
+  queryInterface.rollbackTimeoutPrepared = function(xa, options) {
+    if (!xa || !(xa instanceof XATransaction)) {
+      throw new Error('Ubable to start a transaction without transaction object');
+    }
+    options = _.assign({}, options || {}, {
+      transaction: xa.parent || xa
+    });
+    return this.sequelize.query('ROLLBACK;', options);
+  }
+
   sequelize.__proto__.XATransaction = function(options, autoCallback) {
     if (typeof options === 'function') {
       autoCallback = options;
@@ -71,7 +81,8 @@ function XAPlugin(sequelize, options) {
           name: options.name,
           status: status,
           id: transaction.id,
-          callback: options.callback
+          callback: options.callback,
+          tower: options.tower
         })
       });
     };
@@ -98,7 +109,8 @@ function XAPlugin(sequelize, options) {
               name: options.name,
               status: 'PREPARE',
               id: transaction.id,
-              callback: options.callback
+              callback: options.callback,
+              tower: options.tower
             })
           });
         }).catch(function(err) {
