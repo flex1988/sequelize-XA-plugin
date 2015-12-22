@@ -85,7 +85,7 @@ function XAPlugin(sequelize, options) {
       let status = transaction.prepared || transaction.finished || 'ERROR';
       request({
         method: 'put',
-        uri: options.transactionManager + options.xid,
+        uri: options.transactionManager + '/' + options.xid,
         form: qs.stringify({
           name: options.name,
           status: status,

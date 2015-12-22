@@ -1,6 +1,6 @@
 {
   "name": "sequelize-xa-plugin",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "description": "sequelize plugin XA transaction",
   "main": "index.js",
   "scripts": {
