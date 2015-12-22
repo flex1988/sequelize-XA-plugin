@@ -74,6 +74,7 @@ function XAPlugin(sequelize, options) {
     let ns = sequelize.__proto__.cls;
 
     let notify = function(transaction, reject, err) {
+      console.log(err);
       //通知TM rollback
       if (transaction.finished === 'ROLLBACK') {
         reject(err);
@@ -113,7 +114,7 @@ function XAPlugin(sequelize, options) {
         }).then(function() {
           request({
             method: 'put',
-            uri: options.transactionManager + options.xid,
+            uri: options.transactionManager + '/' + options.xid,
             form: qs.stringify({
               name: options.name,
               status: 'PREPARE',
