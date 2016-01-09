@@ -10,7 +10,9 @@
     "sequelize",
     "plugin",
     "XA",
-    "transaction"
+    "transaction",
+    "nodejs",
+    "distribute"
   ],
   "author": "flex1988",
   "license": "ISC",
